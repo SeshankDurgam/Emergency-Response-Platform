@@ -1,0 +1,232 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-declarative-config
+  namespace: emergency-connect
+data:
+  kong.yml: |
+    _format_version: "3.0"
+    _transform: true
+
+    consumers:
+      - username: emergency-connect-app
+        jwt_secrets:
+          - key: emergency-connect-uae
+            algorithm: HS256
+            secret: dev-secret-key-for-local-development-only-must-be-256-bits
+
+    services:
+      - name: auth-service
+        url: https://auth-service:8081
+        routes:
+          - name: auth-routes
+            paths:
+              - /api/v1/auth
+              - /api/v1/users
+              - /api/v1/security
+            strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 100
+              policy: local
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - PATCH
+                - DELETE
+                - OPTIONS
+              headers:
+                - Authorization
+                - Content-Type
+              credentials: true
+
+      - name: incident-service
+        url: https://incident-service:8082
+        routes:
+          - name: incident-routes
+            paths:
+              - /api/v1/incidents
+            strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+          - name: rate-limiting
+            config:
+              minute: 200
+              policy: local
+          - name: cors
+            config:
+              origins:
+                - "*"
+              credentials: true
+
+      - name: resource-service
+        url: https://resource-service:8083
+        routes:
+          - name: resource-routes
+            paths:
+              - /api/v1/resources
+            strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+          - name: rate-limiting
+            config:
+              minute: 200
+              policy: local
+          - name: cors
+            config:
+              origins:
+                - "*"
+              credentials: true
+
+      - name: dispatch-service
+        url: https://dispatch-service:8084
+        routes:
+          - name: dispatch-routes
+            paths:
+              - /api/v1/dispatch
+            strip_path: false
+        plugins:
+          - name: jwt
+            config:
+              claims_to_verify:
+                - exp
+          - name: rate-limiting
+            config:
+              minute: 200
+              policy: local
+          - name: cors
+            config:
+              origins:
+                - "*"
+              credentials: true
+
+      - name: audit-service
+        url: https://audit-service:8085
+        routes:
+          - name: audit-routes
+            paths:
+              - /api/v1/audit
+            strip_path: false
+            plugins:
+              - name: jwt
+                config:
+                  claims_to_verify:
+                    - exp
+              - name: rate-limiting
+                config:
+                  minute: 200
+                  policy: local
+              - name: cors
+                config:
+                  origins:
+                    - "*"
+                  credentials: true
+          - name: audit-ws-route
+            paths:
+              - /api/v1/audit-ws
+            strip_path: true
+            protocols:
+              - http
+              - https
+            plugins:
+              - name: cors
+                config:
+                  origins:
+                    - "*"
+                  credentials: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+  namespace: emergency-connect
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      containers:
+        - name: kong
+          image: kong:3.6
+          ports:
+            - containerPort: 8000
+              name: proxy
+            - containerPort: 8443
+              name: proxy-ssl
+            - containerPort: 8001
+              name: admin
+          env:
+            - name: KONG_DATABASE
+              value: "off"
+            - name: KONG_DECLARATIVE_CONFIG
+              value: /kong/declarative/kong.yml
+            - name: KONG_PROXY_LISTEN
+              value: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
+            - name: KONG_ADMIN_LISTEN
+              value: "0.0.0.0:8001"
+            - name: KONG_PROXY_ACCESS_LOG
+              value: /dev/stdout
+            - name: KONG_ADMIN_ACCESS_LOG
+              value: /dev/stdout
+            - name: KONG_PROXY_ERROR_LOG
+              value: /dev/stderr
+            - name: KONG_ADMIN_ERROR_LOG
+              value: /dev/stderr
+            - name: KONG_NGINX_WORKER_PROCESSES
+              value: "1"
+            - name: KONG_MEM_CACHE_SIZE
+              value: "32m"
+          volumeMounts:
+            - name: kong-config
+              mountPath: /kong/declarative
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "400m"
+      volumes:
+        - name: kong-config
+          configMap:
+            name: kong-declarative-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong
+  namespace: emergency-connect
+spec:
+  selector:
+    app: kong
+  type: NodePort
+  ports:
+    - name: proxy
+      port: 8000
+      targetPort: 8000
+      nodePort: 30080
+    - name: proxy-ssl
+      port: 8443
+      targetPort: 8443
+      nodePort: 30443
+    - name: admin
+      port: 8001
+      targetPort: 8001
+      nodePort: 30081

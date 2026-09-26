@@ -1,0 +1,485 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: emergency-connect
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: emergency-connect/auth-service:1.0.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: emergency-connect-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: REDIS_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: JWT_SECRET
+            - name: MAIL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: MAIL_USERNAME
+            - name: MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: MAIL_PASSWORD
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Djavax.net.ssl.trustStore=/etc/ssl/certs/keystore.p12 -Djavax.net.ssl.trustStorePassword=ecpassword"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+              scheme: HTTPS
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 10
+            timeoutSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+              scheme: HTTPS
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            failureThreshold: 5
+            timeoutSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "300m"
+            limits:
+              memory: "1Gi"
+              cpu: "600m"
+          volumeMounts:
+            - name: tls-secret-volume
+              mountPath: /etc/ssl/certs/
+              readOnly: true
+      volumes:
+        - name: tls-secret-volume
+          secret:
+            secretName: tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: emergency-connect
+spec:
+  selector:
+    app: auth-service
+  ports:
+    - port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: incident-service
+  namespace: emergency-connect
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: incident-service
+  template:
+    metadata:
+      labels:
+        app: incident-service
+    spec:
+      containers:
+        - name: incident-service
+          image: emergency-connect/incident-service:1.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: emergency-connect-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/incident_shard_0?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: REDIS_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: JWT_SECRET
+            - name: SHARD0_URL
+              value: "jdbc:mysql://mysql:3306/incident_shard_0?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+            - name: SHARD1_URL
+              value: "jdbc:mysql://mysql:3306/incident_shard_1?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+            - name: SHARD2_URL
+              value: "jdbc:mysql://mysql:3306/incident_shard_2?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+            - name: SPRING_CACHE_TYPE
+              value: "none"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Djavax.net.ssl.trustStore=/etc/ssl/certs/keystore.p12 -Djavax.net.ssl.trustStorePassword=ecpassword"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+              scheme: HTTPS
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+              scheme: HTTPS
+            initialDelaySeconds: 120
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "300m"
+            limits:
+              memory: "1Gi"
+              cpu: "600m"
+          volumeMounts:
+            - name: tls-secret-volume
+              mountPath: /etc/ssl/certs/
+              readOnly: true
+      volumes:
+        - name: tls-secret-volume
+          secret:
+            secretName: tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: incident-service
+  namespace: emergency-connect
+spec:
+  selector:
+    app: incident-service
+  ports:
+    - port: 8082
+      targetPort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-service
+  namespace: emergency-connect
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: resource-service
+  template:
+    metadata:
+      labels:
+        app: resource-service
+    spec:
+      containers:
+        - name: resource-service
+          image: emergency-connect/resource-service:1.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8083
+          envFrom:
+            - configMapRef:
+                name: emergency-connect-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/resource_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: REDIS_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: JWT_SECRET
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Djavax.net.ssl.trustStore=/etc/ssl/certs/keystore.p12 -Djavax.net.ssl.trustStorePassword=ecpassword"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+              scheme: HTTPS
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+              scheme: HTTPS
+            initialDelaySeconds: 120
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "300m"
+            limits:
+              memory: "1Gi"
+              cpu: "600m"
+          volumeMounts:
+            - name: tls-secret-volume
+              mountPath: /etc/ssl/certs/
+              readOnly: true
+      volumes:
+        - name: tls-secret-volume
+          secret:
+            secretName: tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: resource-service
+  namespace: emergency-connect
+spec:
+  selector:
+    app: resource-service
+  ports:
+    - port: 8083
+      targetPort: 8083
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatch-service
+  namespace: emergency-connect
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dispatch-service
+  template:
+    metadata:
+      labels:
+        app: dispatch-service
+    spec:
+      containers:
+        - name: dispatch-service
+          image: emergency-connect/dispatch-service:1.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8084
+          envFrom:
+            - configMapRef:
+                name: emergency-connect-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/dispatch_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: REDIS_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: JWT_SECRET
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Djavax.net.ssl.trustStore=/etc/ssl/certs/keystore.p12 -Djavax.net.ssl.trustStorePassword=ecpassword"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8084
+              scheme: HTTPS
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8084
+              scheme: HTTPS
+            initialDelaySeconds: 120
+            periodSeconds: 20
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "300m"
+            limits:
+              memory: "1Gi"
+              cpu: "600m"
+          volumeMounts:
+            - name: tls-secret-volume
+              mountPath: /etc/ssl/certs/
+              readOnly: true
+      volumes:
+        - name: tls-secret-volume
+          secret:
+            secretName: tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dispatch-service
+  namespace: emergency-connect
+spec:
+  selector:
+    app: dispatch-service
+  ports:
+    - port: 8084
+      targetPort: 8084
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-service
+  namespace: emergency-connect
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: audit-service
+  template:
+    metadata:
+      labels:
+        app: audit-service
+    spec:
+      containers:
+        - name: audit-service
+          image: emergency-connect/audit-service:1.0.6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8085
+          envFrom:
+            - configMapRef:
+                name: emergency-connect-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/audit_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: DB_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: REDIS_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: emergency-connect-secrets
+                  key: JWT_SECRET
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Djavax.net.ssl.trustStore=/etc/ssl/certs/keystore.p12 -Djavax.net.ssl.trustStorePassword=ecpassword"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8085
+              scheme: HTTPS
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 10
+            timeoutSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8085
+              scheme: HTTPS
+            initialDelaySeconds: 150
+            periodSeconds: 20
+            failureThreshold: 5
+            timeoutSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "300m"
+            limits:
+              memory: "1Gi"
+              cpu: "600m"
+          volumeMounts:
+            - name: tls-secret-volume
+              mountPath: /etc/ssl/certs/
+              readOnly: true
+      volumes:
+        - name: tls-secret-volume
+          secret:
+            secretName: tls-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audit-service
+  namespace: emergency-connect
+spec:
+  selector:
+    app: audit-service
+  ports:
+    - port: 8085
+      targetPort: 8085

@@ -1,0 +1,32 @@
+version: "3.9"
+
+# =============================================================
+# KONG API GATEWAY  (declarative / DB-less mode)
+# Run from project root:  docker compose -f kong/docker-compose.yaml up -d
+# Kong listens on :8000 (proxy) and :8002 (admin GUI)
+# Requires infra (MySQL, Redis, Kafka) to be up first:
+#   docker compose up -d
+# =============================================================
+
+services:
+  kong:
+    image: kong:3.6-ubuntu
+    container_name: ec-kong
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"                          # DB-less mode
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml   # load our config
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_ADMIN_GUI_LISTEN: "0.0.0.0:8002"
+    volumes:
+      - ./kong.yml:/etc/kong/kong.yml:ro
+    ports:
+      - "8000:8000"   # frontend hits this
+      - "8001:8001"   # Admin API
+      - "8002:8002"   # Kong Manager GUI (optional)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

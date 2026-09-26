@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: emergency-connect-config
+  namespace: emergency-connect
+data:
+  EUREKA_URL: "http://eureka-server:8761/eureka"
+  KAFKA_BROKER: "kafka-svc:9092"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  ZIPKIN_URL: "http://zipkin:9411"
+  DB_DRIVER: "com.mysql.cj.jdbc.Driver"
+  SHARD0_URL: "jdbc:mysql://mysql:3306/incident_shard_0?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+  SHARD1_URL: "jdbc:mysql://mysql:3306/incident_shard_1?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+  SHARD2_URL: "jdbc:mysql://mysql:3306/incident_shard_2?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"

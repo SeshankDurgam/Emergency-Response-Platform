@@ -1,0 +1,55 @@
+# CSC408 Spring 2026
+# Section 104 Group 6
+# Members Yohannis 1093892, Indalu 1093915, Biniam 1093887
+#
+# Prometheus config for the local docker compose stack.
+# The Spring Boot services run on the host machine via Maven or IntelliJ,
+# not inside the docker network, so each target uses host.docker.internal
+# instead of a docker service name.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: auth-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8081"]
+        labels:
+          service: auth-service
+
+  - job_name: incident-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8082"]
+        labels:
+          service: incident-service
+
+  - job_name: resource-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8083"]
+        labels:
+          service: resource-service
+
+  - job_name: dispatch-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8084"]
+        labels:
+          service: dispatch-service
+
+  - job_name: audit-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8085"]
+        labels:
+          service: audit-service
+
+  - job_name: eureka-server
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8761"]
+        labels:
+          service: eureka-server

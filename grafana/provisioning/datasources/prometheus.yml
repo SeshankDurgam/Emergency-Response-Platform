@@ -1,0 +1,16 @@
+# CSC408 Spring 2026
+# Section 104 Group 6
+# Members Yohannis 1093892, Indalu 1093915, Biniam 1093887
+#
+# Provisions the Prometheus datasource automatically when Grafana starts.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true

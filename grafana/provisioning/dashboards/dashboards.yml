@@ -1,0 +1,20 @@
+# CSC408 Spring 2026
+# Section 104 Group 6
+# Members Yohannis 1093892, Indalu 1093915, Biniam 1093887
+#
+# Tells Grafana to load any dashboard JSON files placed in
+# /var/lib/grafana/dashboards (mounted from ./grafana/dashboards).
+
+apiVersion: 1
+
+providers:
+  - name: EmergencyConnectUAE
+    orgId: 1
+    folder: EmergencyConnectUAE
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

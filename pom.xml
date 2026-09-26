@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    This is a build aggregator only.
+    No service inherits from this POM.
+    Each service is a completely standalone Spring Boot application
+    that inherits directly from spring-boot-starter-parent.
+
+    Run from this folder to build everything in one shot:
+      mvn clean install -DskipTests
+
+    The shared library must be installed first so services can resolve it:
+      cd shared && mvn clean install -DskipTests
+      cd .. && mvn clean package -DskipTests - -pl auth-service,incident-service,...
+  -->
+
+  <groupId>com.emergencyconnect</groupId>
+  <artifactId>emergencyconnect-build</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+  <name>EmergencyConnect UAE - Build Aggregator</name>
+
+  <modules>
+    <module>shared</module>
+    <module>eureka-server</module>
+    <module>auth-service</module>
+    <module>incident-service</module>
+    <module>resource-service</module>
+    <module>dispatch-service</module>
+    <module>audit-service</module>
+  </modules>
+
+</project>

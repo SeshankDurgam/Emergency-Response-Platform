@@ -1,0 +1,187 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zipkin
+  namespace: emergency-connect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zipkin
+  template:
+    metadata:
+      labels:
+        app: zipkin
+    spec:
+      containers:
+        - name: zipkin
+          image: openzipkin/zipkin:latest
+          ports:
+            - containerPort: 9411
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  namespace: emergency-connect
+spec:
+  selector:
+    app: zipkin
+  ports:
+    - port: 9411
+      targetPort: 9411
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: emergency-connect
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: auth-service
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets: ['auth-service:8081']
+      - job_name: incident-service
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets: ['incident-service:8082']
+      - job_name: resource-service
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets: ['resource-service:8083']
+      - job_name: dispatch-service
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets: ['dispatch-service:8084']
+      - job_name: audit-service
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets: ['audit-service:8085']
+      - job_name: eureka-server
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        metrics_path: /actuator/prometheus
+        static_configs:
+          - targets: ['eureka-server:8761']
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: emergency-connect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:latest
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: emergency-connect
+spec:
+  selector:
+    app: prometheus
+  type: NodePort
+  ports:
+    - port: 9090
+      targetPort: 9090
+      nodePort: 30090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: emergency-connect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.4.3
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: emergency-connect
+spec:
+  selector:
+    app: grafana
+  type: NodePort
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30301
